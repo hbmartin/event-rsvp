@@ -17,27 +17,17 @@ A professional event management system built with Next.js, TypeScript, and Tailw
 
 ## 🚀 Quick Start
 
-### Prerequisites
-
-- Node.js 18+ and npm/yarn/pnpm
-- MySQL/PostgreSQL database
-- Git
-
 ### Installation
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/event-rsvp.git
+   git clone https://github.com/hbmartin/event-rsvp.git
    cd event-rsvp
    ```
 
 2. Install dependencies:
    ```bash
-   npm install
-   # or
    yarn install
-   # or
-   pnpm install
    ```
 
 3. Set up environment variables:
@@ -48,11 +38,7 @@ A professional event management system built with Next.js, TypeScript, and Tailw
 
 4. Run the development server:
    ```bash
-   npm run dev
-   # or
    yarn dev
-   # or
-   pnpm dev
    ```
 
 5. Open [http://localhost:3000](http://localhost:3000) in your browser.
@@ -63,9 +49,9 @@ For detailed documentation, please visit our [Documentation Site](./docs/README.
 
 ## 🛠️ Tech Stack
 
-- **Frontend**: Next.js 14, React 18, TypeScript, Tailwind CSS
+- **Frontend**: Next.js, React, TypeScript, Tailwind CSS
 - **Backend**: Next.js API Routes
-- **Database**: MySQL/PostgreSQL
+- **Database**: Supabase
 - **Authentication**: JWT
 - **UI Components**: Shadcn/ui
 - **Form Handling**: React Hook Form
