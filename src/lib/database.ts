@@ -1,23 +1,16 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import mysql from "mysql2/promise"
+import { Pool } from "pg"
 
-const dbConfig = {
-  host: process.env.DB_HOST || "localhost",
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "event_rsvp_db",
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-}
-
-// Create connection pool for better performance
-const pool = mysql.createPool(dbConfig)
+// Use Replit's DATABASE_URL or construct from individual variables
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: false, // Replit's internal database doesn't require SSL
+})
 
 export async function executeQuery(query: string, params: any[] = []) {
   try {
-    const [results] = await pool.execute(query, params)
-    return results
+    const result = await pool.query(query, params)
+    return result.rows
   } catch (error) {
     console.error("Database query error:", error)
     throw error
@@ -26,7 +19,7 @@ export async function executeQuery(query: string, params: any[] = []) {
 
 export async function getUserById(userId: number) {
   try {
-    const query = "SELECT id, name, email, role, avatar_url, created_at FROM users WHERE id = ?"
+    const query = "SELECT id, name, email, role, avatar_url, created_at FROM users WHERE id = $1"
     const results = (await executeQuery(query, [userId])) as any[]
     return results.length > 0 ? results[0] : null
   } catch (error) {
@@ -39,20 +32,24 @@ export async function updateUser(userId: number, userData: { name?: string; emai
   try {
     const fields = []
     const values = []
+    let paramIndex = 1
 
     if (userData.name) {
-      fields.push("name = ?")
+      fields.push(`name = $${paramIndex}`)
       values.push(userData.name)
+      paramIndex++
     }
 
     if (userData.email) {
-      fields.push("email = ?")
+      fields.push(`email = $${paramIndex}`)
       values.push(userData.email)
+      paramIndex++
     }
 
     if (userData.avatar_url !== undefined) {
-      fields.push("avatar_url = ?")
+      fields.push(`avatar_url = $${paramIndex}`)
       values.push(userData.avatar_url)
+      paramIndex++
     }
 
     if (fields.length === 0) {
@@ -61,7 +58,7 @@ export async function updateUser(userId: number, userData: { name?: string; emai
 
     values.push(userId)
 
-    const query = `UPDATE users SET ${fields.join(", ")} WHERE id = ?`
+    const query = `UPDATE users SET ${fields.join(", ")} WHERE id = $${paramIndex}`
     await executeQuery(query, values)
 
     // Return updated user data

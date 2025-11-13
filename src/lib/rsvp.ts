@@ -9,7 +9,7 @@ export async function createOrUpdateRSVP(
 ): Promise<RSVP | null> {
   try {
     // Check if RSVP already exists
-    const existingRSVP = (await executeQuery("SELECT id FROM rsvp WHERE event_id = ? AND user_id = ?", [
+    const existingRSVP = (await executeQuery("SELECT id FROM rsvp WHERE event_id = $1 AND user_id = $2", [
       eventId,
       userId,
     ])) as any[]
@@ -17,12 +17,12 @@ export async function createOrUpdateRSVP(
     if (existingRSVP.length > 0) {
       // Update existing RSVP
       await executeQuery(
-        "UPDATE rsvp SET status = ?, responded_at = CURRENT_TIMESTAMP WHERE event_id = ? AND user_id = ?",
+        "UPDATE rsvp SET status = $1, responded_at = CURRENT_TIMESTAMP WHERE event_id = $2 AND user_id = $3",
         [status, eventId, userId],
       )
     } else {
       // Create new RSVP
-      await executeQuery("INSERT INTO rsvp (event_id, user_id, status) VALUES (?, ?, ?)", [eventId, userId, status])
+      await executeQuery("INSERT INTO rsvp (event_id, user_id, status) VALUES ($1, $2, $3)", [eventId, userId, status])
     }
 
     return getRSVPByEventAndUser(eventId, userId)
@@ -38,7 +38,7 @@ export async function getRSVPByEventAndUser(eventId: number, userId: number): Pr
       `SELECT r.*, u.name as user_name, u.email as user_email 
        FROM rsvp r 
        LEFT JOIN users u ON r.user_id = u.id 
-       WHERE r.event_id = ? AND r.user_id = ?`,
+       WHERE r.event_id = $1 AND r.user_id = $2`,
       [eventId, userId],
     )) as any[]
 
@@ -55,7 +55,7 @@ export async function getRSVPsByEvent(eventId: number): Promise<RSVP[]> {
       `SELECT r.*, u.name as user_name, u.email as user_email 
        FROM rsvp r 
        LEFT JOIN users u ON r.user_id = u.id 
-       WHERE r.event_id = ? 
+       WHERE r.event_id = $1 
        ORDER BY r.responded_at DESC`,
       [eventId],
     )) as any[]
@@ -69,7 +69,7 @@ export async function getRSVPsByEvent(eventId: number): Promise<RSVP[]> {
 
 export async function deleteRSVP(eventId: number, userId: number): Promise<boolean> {
   try {
-    await executeQuery("DELETE FROM rsvp WHERE event_id = ? AND user_id = ?", [eventId, userId])
+    await executeQuery("DELETE FROM rsvp WHERE event_id = $1 AND user_id = $2", [eventId, userId])
     return true
   } catch (error) {
     console.error("Error deleting RSVP:", error)
@@ -90,7 +90,7 @@ export async function getRSVPStats(eventId: number): Promise<{
        COUNT(CASE WHEN status = 'no' THEN 1 END) as no_count,
        COUNT(CASE WHEN status = 'maybe' THEN 1 END) as maybe_count,
        COUNT(*) as total_count
-       FROM rsvp WHERE event_id = ?`,
+       FROM rsvp WHERE event_id = $1`,
       [eventId],
     )) as any[]
 

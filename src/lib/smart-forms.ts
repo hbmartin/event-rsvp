@@ -12,12 +12,12 @@ export async function createFormTemplate(
   try {
     const result = await executeQuery(
       `INSERT INTO form_templates (name, description, fields, created_by, is_public) 
-       VALUES (?, ?, ?, ?, ?)`,
+       VALUES ($1, $2, $3, $4, $5) RETURNING id`,
       [name, description, JSON.stringify(fields), userId, isPublic]
     ) as any
 
     return {
-      id: result.insertId,
+      id: result.rows[0].id,
       name,
       description,
       fields,
@@ -35,7 +35,7 @@ export async function getFormTemplates(userId: number): Promise<FormTemplate[]> 
   try {
     const results = await executeQuery(
       `SELECT * FROM form_templates 
-       WHERE created_by = ? OR is_public = true 
+       WHERE created_by = $1 OR is_public = true 
        ORDER BY created_at DESC`,
       [userId]
     ) as any[]
@@ -64,8 +64,8 @@ export async function updateFormTemplate(
   try {
     await executeQuery(
       `UPDATE form_templates 
-       SET name = ?, description = ?, fields = ? 
-       WHERE id = ?`,
+       SET name = $1, description = $2, fields = $3 
+       WHERE id = $4`,
       [name, description, JSON.stringify(fields), templateId]
     )
     return true
@@ -77,7 +77,7 @@ export async function updateFormTemplate(
 
 export async function deleteFormTemplate(templateId: number): Promise<boolean> {
   try {
-    await executeQuery(`DELETE FROM form_templates WHERE id = ?`, [templateId])
+    await executeQuery(`DELETE FROM form_templates WHERE id = $1`, [templateId])
     return true
   } catch (error) {
     console.error("Error deleting form template:", error)
@@ -210,15 +210,15 @@ export async function saveFormResponse(
       // Save as user RSVP with custom responses
       await executeQuery(
         `INSERT INTO rsvp (event_id, user_id, status, custom_responses) 
-         VALUES (?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE status = ?, custom_responses = ?`,
-        [eventId, userId, rsvpStatus, JSON.stringify(responses), rsvpStatus, JSON.stringify(responses)]
+         VALUES ($1, $2, $3, $4)
+         ON CONFLICT (event_id, user_id) DO UPDATE SET status = $3, custom_responses = $4`,
+        [eventId, userId, rsvpStatus, JSON.stringify(responses)]
       )
     } else {
       // Save as guest with custom responses
       await executeQuery(
         `INSERT INTO guests (event_id, name, email, status, custom_responses) 
-         VALUES (?, ?, ?, ?, ?)`,
+         VALUES ($1, $2, $3, $4, $5)`,
         [eventId, guestName, guestEmail, rsvpStatus, JSON.stringify(responses)]
       )
     }
@@ -240,14 +240,14 @@ export async function getFormResponses(eventId: number): Promise<{
       `SELECT r.*, u.name, u.email 
        FROM rsvp r 
        JOIN users u ON r.user_id = u.id 
-       WHERE r.event_id = ? AND r.custom_responses IS NOT NULL`,
+       WHERE r.event_id = $1 AND r.custom_responses IS NOT NULL`,
       [eventId]
     ) as any[]
 
     // Get guest responses
     const guestResponses = await executeQuery(
       `SELECT * FROM guests 
-       WHERE event_id = ? AND custom_responses IS NOT NULL`,
+       WHERE event_id = $1 AND custom_responses IS NOT NULL`,
       [eventId]
     ) as any[]
 

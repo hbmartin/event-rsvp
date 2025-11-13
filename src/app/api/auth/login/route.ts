@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
 
     // Get user with password
     const results = (await executeQuery(
-      "SELECT id, name, email, password, role, avatar_url, created_at FROM users WHERE email = ?",
+      "SELECT id, name, email, password, role, avatar_url, created_at FROM users WHERE email = $1",
       [email],
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     )) as any[]

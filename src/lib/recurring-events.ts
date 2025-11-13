@@ -19,11 +19,11 @@ export async function createRecurringEventSeries(
     const seriesResult = await executeQuery(
       `INSERT INTO recurring_event_series 
        (title, description, location, recurrence_type, start_date, end_date, created_by) 
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
       [title, description, location, recurrenceType, startDate, endDate, userId]
     ) as any
 
-    const seriesId = seriesResult.insertId
+    const seriesId = seriesResult.rows[0].id
 
     // Generate individual events based on recurrence
     const events = await generateRecurringEvents(
@@ -81,7 +81,7 @@ async function generateRecurringEvents(
       const eventResult = await executeQuery(
         `INSERT INTO events 
          (title, description, event_date, location, created_by, is_recurring, recurrence_type, parent_event_id, max_capacity, custom_form_fields) 
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
         [
           title,
           description,
@@ -97,7 +97,7 @@ async function generateRecurringEvents(
       ) as any
 
       events.push({
-        id: eventResult.insertId,
+        id: eventResult.rows[0].id,
         title,
         description,
         event_date: format(currentDate, 'yyyy-MM-dd HH:mm:ss'),
@@ -138,7 +138,7 @@ async function generateRecurringEvents(
 export async function getRecurringEventSeries(userId: number): Promise<RecurringEventSeries[]> {
   try {
     const results = await executeQuery(
-      `SELECT * FROM recurring_event_series WHERE created_by = ? ORDER BY created_at DESC`,
+      `SELECT * FROM recurring_event_series WHERE created_by = $1 ORDER BY created_at DESC`,
       [userId]
     ) as any[]
 
@@ -146,7 +146,7 @@ export async function getRecurringEventSeries(userId: number): Promise<Recurring
 
     for (const row of results) {
       const events = await executeQuery(
-        `SELECT * FROM events WHERE parent_event_id = ? ORDER BY event_date ASC`,
+        `SELECT * FROM events WHERE parent_event_id = $1 ORDER BY event_date ASC`,
         [row.id]
       ) as any[]
 
@@ -186,8 +186,8 @@ export async function updateRecurringEventSeries(
     // Update series record
     await executeQuery(
       `UPDATE recurring_event_series 
-       SET title = ?, description = ?, location = ? 
-       WHERE id = ?`,
+       SET title = $1, description = $2, location = $3 
+       WHERE id = $4`,
       [title, description, location, seriesId]
     )
 
@@ -195,8 +195,8 @@ export async function updateRecurringEventSeries(
       // Update future events in the series
       await executeQuery(
         `UPDATE events 
-         SET title = ?, description = ?, location = ? 
-         WHERE parent_event_id = ? AND event_date >= NOW()`,
+         SET title = $1, description = $2, location = $3 
+         WHERE parent_event_id = $4 AND event_date >= CURRENT_TIMESTAMP`,
         [title, description, location, seriesId]
       )
     }
@@ -216,28 +216,32 @@ export async function deleteRecurringEventSeries(
     if (deleteFutureEvents) {
       // Delete future events and their RSVPs
       await executeQuery(
-        `DELETE r FROM rsvp r 
-         JOIN events e ON r.event_id = e.id 
-         WHERE e.parent_event_id = ? AND e.event_date >= NOW()`,
+        `DELETE FROM rsvp 
+         WHERE event_id IN (
+           SELECT id FROM events 
+           WHERE parent_event_id = $1 AND event_date >= CURRENT_TIMESTAMP
+         )`,
         [seriesId]
       )
 
       await executeQuery(
-        `DELETE g FROM guests g 
-         JOIN events e ON g.event_id = e.id 
-         WHERE e.parent_event_id = ? AND e.event_date >= NOW()`,
+        `DELETE FROM guests 
+         WHERE event_id IN (
+           SELECT id FROM events 
+           WHERE parent_event_id = $1 AND event_date >= CURRENT_TIMESTAMP
+         )`,
         [seriesId]
       )
 
       await executeQuery(
-        `DELETE FROM events WHERE parent_event_id = ? AND event_date >= NOW()`,
+        `DELETE FROM events WHERE parent_event_id = $1 AND event_date >= CURRENT_TIMESTAMP`,
         [seriesId]
       )
     }
 
     // Delete series record
     await executeQuery(
-      `DELETE FROM recurring_event_series WHERE id = ?`,
+      `DELETE FROM recurring_event_series WHERE id = $1`,
       [seriesId]
     )
 
@@ -262,7 +266,7 @@ export async function createEventFromTemplate(
   try {
     // Get template
     const templateResults = await executeQuery(
-      `SELECT * FROM form_templates WHERE id = ?`,
+      `SELECT * FROM form_templates WHERE id = $1`,
       [templateId]
     ) as any[]
 
@@ -276,7 +280,7 @@ export async function createEventFromTemplate(
     const result = await executeQuery(
       `INSERT INTO events 
        (title, description, event_date, location, created_by, max_capacity, custom_form_fields, form_template_id) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
       [
         eventData.title,
         eventData.description,
@@ -290,7 +294,7 @@ export async function createEventFromTemplate(
     ) as any
 
     return {
-      id: result.insertId,
+      id: result.rows[0].id,
       title: eventData.title,
       description: eventData.description,
       event_date: eventData.eventDate,

@@ -12,7 +12,7 @@ export async function addToWaitlist(
     // Get current waitlist position
     const positionResult = await executeQuery(
       `SELECT COALESCE(MAX(position), 0) + 1 as next_position 
-       FROM event_waitlist WHERE event_id = ?`,
+       FROM event_waitlist WHERE event_id = $1`,
       [eventId]
     ) as any[]
 
@@ -21,12 +21,12 @@ export async function addToWaitlist(
     const result = await executeQuery(
       `INSERT INTO event_waitlist 
        (event_id, user_id, guest_name, guest_email, position, status) 
-       VALUES (?, ?, ?, ?, ?, 'waiting')`,
+       VALUES ($1, $2, $3, $4, $5, 'waiting') RETURNING id`,
       [eventId, userId || null, guestName || null, guestEmail || null, position]
     ) as any
 
     return {
-      id: result.insertId,
+      id: result.rows[0].id,
       event_id: eventId,
       user_id: userId,
       guest_name: guestName,
@@ -45,7 +45,7 @@ export async function removeFromWaitlist(waitlistId: number): Promise<boolean> {
   try {
     // Get waitlist entry to reorder positions
     const waitlistEntry = await executeQuery(
-      `SELECT event_id, position FROM event_waitlist WHERE id = ?`,
+      `SELECT event_id, position FROM event_waitlist WHERE id = $1`,
       [waitlistId]
     ) as any[]
 
@@ -56,13 +56,13 @@ export async function removeFromWaitlist(waitlistId: number): Promise<boolean> {
     const { event_id, position } = waitlistEntry[0]
 
     // Remove from waitlist
-    await executeQuery(`DELETE FROM event_waitlist WHERE id = ?`, [waitlistId])
+    await executeQuery(`DELETE FROM event_waitlist WHERE id = $1`, [waitlistId])
 
     // Reorder remaining positions
     await executeQuery(
       `UPDATE event_waitlist 
        SET position = position - 1 
-       WHERE event_id = ? AND position > ?`,
+       WHERE event_id = $1 AND position > $2`,
       [event_id, position]
     )
 
@@ -79,7 +79,7 @@ export async function getEventWaitlist(eventId: number): Promise<EventWaitlist[]
       `SELECT w.*, u.name as user_name, u.email as user_email 
        FROM event_waitlist w 
        LEFT JOIN users u ON w.user_id = u.id 
-       WHERE w.event_id = ? 
+       WHERE w.event_id = $1 
        ORDER BY w.position ASC`,
       [eventId]
     ) as any[]
@@ -111,7 +111,7 @@ export async function checkEventCapacity(eventId: number): Promise<{
   try {
     // Get event capacity
     const eventResult = await executeQuery(
-      `SELECT max_capacity FROM events WHERE id = ?`,
+      `SELECT max_capacity FROM events WHERE id = $1`,
       [eventId]
     ) as any[]
 
@@ -120,16 +120,16 @@ export async function checkEventCapacity(eventId: number): Promise<{
     // Count current attendees (confirmed RSVPs + guests)
     const attendeeResult = await executeQuery(
       `SELECT 
-         (SELECT COUNT(*) FROM rsvp WHERE event_id = ? AND status = 'yes') +
-         (SELECT COUNT(*) FROM guests WHERE event_id = ? AND status = 'yes') as current_attendees`,
-      [eventId, eventId]
+         (SELECT COUNT(*) FROM rsvp WHERE event_id = $1 AND status = 'yes') +
+         (SELECT COUNT(*) FROM guests WHERE event_id = $1 AND status = 'yes') as current_attendees`,
+      [eventId]
     ) as any[]
 
     const currentAttendees = attendeeResult[0]?.current_attendees || 0
 
     // Count waitlist
     const waitlistResult = await executeQuery(
-      `SELECT COUNT(*) as waitlist_count FROM event_waitlist WHERE event_id = ? AND status = 'waiting'`,
+      `SELECT COUNT(*) as waitlist_count FROM event_waitlist WHERE event_id = $1 AND status = 'waiting'`,
       [eventId]
     ) as any[]
 
@@ -166,7 +166,7 @@ export async function processWaitlistAfterCancellation(eventId: number): Promise
       // Get next person on waitlist
       const nextInLine = await executeQuery(
         `SELECT * FROM event_waitlist 
-         WHERE event_id = ? AND status = 'waiting' 
+         WHERE event_id = $1 AND status = 'waiting' 
          ORDER BY position ASC LIMIT 1`,
         [eventId]
       ) as any[]
@@ -177,8 +177,8 @@ export async function processWaitlistAfterCancellation(eventId: number): Promise
         // Mark as notified
         await executeQuery(
           `UPDATE event_waitlist 
-           SET status = 'notified', notified_at = NOW() 
-           WHERE id = ?`,
+           SET status = 'notified', notified_at = CURRENT_TIMESTAMP 
+           WHERE id = $1`,
           [waitlistEntry.id]
         )
 
@@ -203,7 +203,7 @@ export async function convertWaitlistToRSVP(
   try {
     // Get waitlist entry
     const waitlistEntry = await executeQuery(
-      `SELECT * FROM event_waitlist WHERE id = ?`,
+      `SELECT * FROM event_waitlist WHERE id = $1`,
       [waitlistId]
     ) as any[]
 
@@ -216,21 +216,21 @@ export async function convertWaitlistToRSVP(
     if (entry.user_id) {
       // Convert to user RSVP
       await executeQuery(
-        `INSERT INTO rsvp (event_id, user_id, status) VALUES (?, ?, ?)
-         ON DUPLICATE KEY UPDATE status = ?`,
-        [entry.event_id, entry.user_id, responseStatus, responseStatus]
+        `INSERT INTO rsvp (event_id, user_id, status) VALUES ($1, $2, $3)
+         ON CONFLICT (event_id, user_id) DO UPDATE SET status = $3`,
+        [entry.event_id, entry.user_id, responseStatus]
       )
     } else {
       // Convert to guest RSVP
       await executeQuery(
-        `INSERT INTO guests (event_id, name, email, status) VALUES (?, ?, ?, ?)`,
+        `INSERT INTO guests (event_id, name, email, status) VALUES ($1, $2, $3, $4)`,
         [entry.event_id, entry.guest_name, entry.guest_email, responseStatus]
       )
     }
 
     // Mark waitlist entry as converted
     await executeQuery(
-      `UPDATE event_waitlist SET status = 'converted' WHERE id = ?`,
+      `UPDATE event_waitlist SET status = 'converted' WHERE id = $1`,
       [waitlistId]
     )
 
@@ -250,10 +250,10 @@ export async function getWaitlistPosition(eventId: number, userId?: number, gues
     let params: any[]
 
     if (userId) {
-      query = `SELECT position FROM event_waitlist WHERE event_id = ? AND user_id = ? AND status = 'waiting'`
+      query = `SELECT position FROM event_waitlist WHERE event_id = $1 AND user_id = $2 AND status = 'waiting'`
       params = [eventId, userId]
     } else if (guestEmail) {
-      query = `SELECT position FROM event_waitlist WHERE event_id = ? AND guest_email = ? AND status = 'waiting'`
+      query = `SELECT position FROM event_waitlist WHERE event_id = $1 AND guest_email = $2 AND status = 'waiting'`
       params = [eventId, guestEmail]
     } else {
       return null

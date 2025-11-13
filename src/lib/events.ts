@@ -11,12 +11,12 @@ export async function createEvent(
 ): Promise<Event | null> {
   try {
     const result = (await executeQuery(
-      "INSERT INTO events (title, description, event_date, location, created_by) VALUES (?, ?, ?, ?, ?)",
+      "INSERT INTO events (title, description, event_date, location, created_by) VALUES ($1, $2, $3, $4, $5) RETURNING id",
       [title, description, eventDate, location, createdBy],
     )) as any
 
-    if (result.insertId) {
-      return getEventById(result.insertId)
+    if (result.rows && result.rows.length > 0) {
+      return getEventById(result.rows[0].id)
     }
     return null
   } catch (error) {
@@ -38,8 +38,8 @@ export async function getEventById(id: number): Promise<Event | null> {
        LEFT JOIN users u ON e.created_by = u.id
        LEFT JOIN rsvp r ON e.id = r.event_id
        LEFT JOIN guests g ON e.id = g.event_id
-       WHERE e.id = ?
-       GROUP BY e.id`,
+       WHERE e.id = $1
+       GROUP BY e.id, u.name`,
       [id],
     )) as any[]
 
@@ -75,8 +75,8 @@ export async function getEventsByUser(userId: number): Promise<Event[]> {
        LEFT JOIN users u ON e.created_by = u.id
        LEFT JOIN rsvp r ON e.id = r.event_id
        LEFT JOIN guests g ON e.id = g.event_id
-       WHERE e.created_by = ?
-       GROUP BY e.id
+       WHERE e.created_by = $1
+       GROUP BY e.id, u.name
        ORDER BY e.event_date DESC`,
       [userId],
     )) as any[]
@@ -109,7 +109,7 @@ export async function getAllEvents(): Promise<Event[]> {
        LEFT JOIN users u ON e.created_by = u.id
        LEFT JOIN rsvp r ON e.id = r.event_id
        LEFT JOIN guests g ON e.id = g.event_id
-       GROUP BY e.id
+       GROUP BY e.id, u.name
        ORDER BY e.event_date DESC`,
     )) as any[]
 
@@ -136,7 +136,7 @@ export async function updateEvent(
   location: string,
 ): Promise<Event | null> {
   try {
-    await executeQuery("UPDATE events SET title = ?, description = ?, event_date = ?, location = ? WHERE id = ?", [
+    await executeQuery("UPDATE events SET title = $1, description = $2, event_date = $3, location = $4 WHERE id = $5", [
       title,
       description,
       eventDate,
@@ -153,7 +153,7 @@ export async function updateEvent(
 
 export async function deleteEvent(id: number): Promise<boolean> {
   try {
-    await executeQuery("DELETE FROM events WHERE id = ?", [id])
+    await executeQuery("DELETE FROM events WHERE id = $1", [id])
     return true
   } catch (error) {
     console.error("Error deleting event:", error)

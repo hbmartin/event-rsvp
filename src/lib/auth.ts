@@ -47,7 +47,7 @@ export function verifyToken(token: string): any {
 export async function getUserByEmail(email: string): Promise<User | null> {
   try {
     const results = (await executeQuery(
-      "SELECT id, name, email, role, avatar_url, created_at FROM users WHERE email = ?",
+      "SELECT id, name, email, role, avatar_url, created_at FROM users WHERE email = $1",
       [email],
     )) as any[]
 
@@ -61,7 +61,7 @@ export async function getUserByEmail(email: string): Promise<User | null> {
 export async function getUserById(id: number): Promise<User | null> {
   try {
     const results = (await executeQuery(
-      "SELECT id, name, email, role, avatar_url, created_at FROM users WHERE id = ?",
+      "SELECT id, name, email, role, avatar_url, created_at FROM users WHERE id = $1",
       [id],
     )) as any[]
 
@@ -75,14 +75,14 @@ export async function getUserById(id: number): Promise<User | null> {
 export async function createUser(name: string, email: string, password: string): Promise<User | null> {
   try {
     const hashedPassword = await hashPassword(password)
-    const result = (await executeQuery("INSERT INTO users (name, email, password) VALUES (?, ?, ?)", [
+    const result = (await executeQuery("INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING id", [
       name,
       email,
       hashedPassword,
     ])) as any
 
-    if (result.insertId) {
-      return getUserById(result.insertId)
+    if (result.rows && result.rows.length > 0) {
+      return getUserById(result.rows[0].id)
     }
     return null
   } catch (error) {
