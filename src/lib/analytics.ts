@@ -34,7 +34,7 @@ export async function getDashboardStats(userId: number): Promise<DashboardStats>
   try {
     // Get total events for user
     const eventResults = (await executeQuery(
-      "SELECT COUNT(*) as total, COUNT(CASE WHEN event_date >= CURDATE() THEN 1 END) as upcoming, COUNT(CASE WHEN event_date < CURDATE() THEN 1 END) as past FROM events WHERE created_by = ?",
+      "SELECT COUNT(*) as total, COUNT(CASE WHEN event_date >= CURRENT_DATE THEN 1 END) as upcoming, COUNT(CASE WHEN event_date < CURRENT_DATE THEN 1 END) as past FROM events WHERE created_by = ?",
       [userId],
     )) as any[]
 
@@ -140,15 +140,15 @@ export async function getMonthlyStats(userId: number): Promise<MonthlyStats[]> {
   try {
     const results = (await executeQuery(
       `SELECT 
-       DATE_FORMAT(e.created_at, '%Y-%m') as month,
+       TO_CHAR(e.created_at, 'YYYY-MM') as month,
        COUNT(e.id) as events,
        COUNT(r.id) as rsvps,
        COUNT(g.id) as guests
        FROM events e
        LEFT JOIN rsvp r ON e.id = r.event_id
        LEFT JOIN guests g ON e.id = g.event_id
-       WHERE e.created_by = ? AND e.created_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
-       GROUP BY DATE_FORMAT(e.created_at, '%Y-%m')
+       WHERE e.created_by = ? AND e.created_at >= NOW() - INTERVAL '12 months'
+       GROUP BY TO_CHAR(e.created_at, 'YYYY-MM')
        ORDER BY month DESC
        LIMIT 12`,
       [userId],

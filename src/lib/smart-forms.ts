@@ -211,8 +211,9 @@ export async function saveFormResponse(
       await executeQuery(
         `INSERT INTO rsvp (event_id, user_id, status, custom_responses) 
          VALUES (?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE status = ?, custom_responses = ?`,
-        [eventId, userId, rsvpStatus, JSON.stringify(responses), rsvpStatus, JSON.stringify(responses)]
+         ON CONFLICT (event_id, user_id) 
+         DO UPDATE SET status = EXCLUDED.status, custom_responses = EXCLUDED.custom_responses`,
+        [eventId, userId, rsvpStatus, JSON.stringify(responses)]
       )
     } else {
       // Save as guest with custom responses

@@ -217,8 +217,8 @@ export async function convertWaitlistToRSVP(
       // Convert to user RSVP
       await executeQuery(
         `INSERT INTO rsvp (event_id, user_id, status) VALUES (?, ?, ?)
-         ON DUPLICATE KEY UPDATE status = ?`,
-        [entry.event_id, entry.user_id, responseStatus, responseStatus]
+         ON CONFLICT (event_id, user_id) DO UPDATE SET status = EXCLUDED.status`,
+        [entry.event_id, entry.user_id, responseStatus]
       )
     } else {
       // Convert to guest RSVP
