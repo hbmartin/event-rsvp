@@ -1,0 +1,114 @@
+# Admin Dashboard - Mini Product Requirements Doc
+
+## Product Overview
+
+Admin dashboard for managing social dining events that connect strangers. Supports algorithmic matching with manual override, multi-city operations, and flexible business model (subscriptions + credits).
+
+## User Roles
+
+- **Super Admin**: Full system access, city management, webhooks, analytics
+- **City Admin**: City-scoped access to dinners, attendees, restaurants, support
+
+------
+
+## Core Features
+
+### 1. Dinner Management
+
+- Create/edit/cancel dinners (date, time, restaurant, seats: 6)
+- Manual matching: swap/add/remove attendees
+- Dinner status tracking: Draft → Confirmed →Closed → Completed
+- Waitlist management when oversubscribed
+
+### 2. Attendee Management
+
+- Member profiles: demographics, preferences, attendance history
+- Credit wallet display (balance, transaction history)
+- Subscription status (active/inactive, renewal date)
+- Cancel/refund handling (no credit refunds on cancellation)
+- Manual credit adjustments with notes
+
+### 3. Payment Tracking
+
+- **Subscription**: A subscribed status grants Unlimited dinners
+- **Credits**: À la carte purchase, 1 credit = 1 seat
+- **One-time codes**: Promo/gift codes for free seats
+
+### 4. Event Analytics Dashboard
+
+- **Seat fill rate**: % booked vs. capacity by city/date
+- **City demand**: Signups, waitlist size, trending neighborhoods
+- **Repeat attendance**: % first-timers vs. returners
+- **Cohort analysis**: Retention by signup month
+- **Revenue metrics**: MRR, credit sales, avg. credits/member
+
+### 5. Group Management
+
+- View assigned dinner groups pre-event
+- Post-event: member feedback on groupmates
+- Flag problematic members (complaints, no-shows)
+
+### 6. Member CRM
+
+- Search/filter: city, payment type, attendance count, signup date
+- Bulk actions: email (assume API), credit adjustment, subscription pause
+- Notes/tags per member
+- Communication history log
+
+### 7. Restaurant Management
+
+- Restaurant database: name, address, contact, capacity, neighborhoods
+- Booking status: Available → Reserved → Confirmed
+- Notes: dietary accommodations, private room availability
+- Performance tracking: dinners hosted, member ratings
+
+### 8. Survey Configuration
+
+- **Onboarding survey**: Matching criteria (interests, conversation style, dietary restrictions)
+- **Post-dinner survey**: Experience rating, groupmate feedback, likelihood to return
+- Add/edit/reorder questions
+- Set question weights for matching algorithm
+
+### 9. Survey Result Analysis
+
+- Aggregate insights: popular interests, satisfaction trends
+- Individual responses linked to member profiles
+- Correlation analysis: Which factors predict repeat attendance?
+
+### 10. Notifications & Webhooks
+
+- **Email templates**: Dinner confirmation, reminder (24hr), post-event survey, credit low balance
+  - Stub out email API usage
+- **Webhooks**: Enable admin integrations  with external tools (Slack alerts, analytics)
+- Webhook logs for debugging
+
+### 11. Exports
+
+- **Contact CSV**: Filtered member list with emails, phone, demographics
+- **Event report CSV**: Dinner history, attendance, revenue
+- **Survey responses CSV**: Bulk analysis in external tools
+
+------
+
+## Key Workflows
+
+### Admin Creates Dinner
+
+1. Select city, date, time, restaurant
+2. System auto-suggests matched members (available, credits/subscription, survey compatibility)
+3. Admin reviews/adjusts group (6 people)
+4. Confirm → triggers email notifications
+5. Restaurant booking marked "Reserved"
+
+### Member Cancels
+
+1. Member cancels via app (outside admin view)
+2. Admin sees vacancy alert
+3. Auto-offer seat to waitlist OR manually invite replacement
+4. No credit refund applied
+
+### City Admin Monthly Review
+
+1. Views city analytics: fill rate, demand trends, top restaurants
+2. Exports attendee CSV for local marketing
+3. Adjusts survey weights if matching quality drops
