@@ -29,7 +29,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
-import { Plus, Search, Calendar, Users, MapPin } from "lucide-react"
+import { Plus, Search, Calendar, Users, MapPin, Download } from "lucide-react"
 import { format } from "date-fns"
 
 interface Dinner {
@@ -95,6 +95,28 @@ export default function DinnersManagementPage() {
     return matchesSearch && matchesStatus
   })
 
+  const exportToCSV = () => {
+    const headers = ["Title", "Date", "Restaurant", "City", "Status", "Capacity", "Assigned", "Fill Rate"]
+    const rows = filteredDinners.map((d) => [
+      d.title,
+      format(new Date(d.event_date), "yyyy-MM-dd HH:mm"),
+      d.restaurant_name || d.location || "",
+      d.city_name || "",
+      d.status,
+      d.seats,
+      d.assigned_count,
+      d.seats > 0 ? `${Math.round((d.assigned_count / d.seats) * 100)}%` : "0%",
+    ])
+
+    const csv = [headers, ...rows].map((row) => row.join(",")).join("\n")
+    const blob = new Blob([csv], { type: "text/csv" })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `dinners-export-${format(new Date(), "yyyy-MM-dd")}.csv`
+    a.click()
+  }
+
   return (
     <div className="p-8 space-y-6">
       {/* Header */}
@@ -105,26 +127,32 @@ export default function DinnersManagementPage() {
             Create, edit, and manage social dining events
           </p>
         </div>
-        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Dinner
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Create New Dinner</DialogTitle>
-              <DialogDescription>
-                Set up a new 6-person dinner event and invite matched members
-              </DialogDescription>
-            </DialogHeader>
-            <CreateDinnerForm onSuccess={() => {
-              setCreateDialogOpen(false)
-              fetchDinners()
-            }} />
-          </DialogContent>
-        </Dialog>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={exportToCSV}>
+            <Download className="h-4 w-4 mr-2" />
+            Export CSV
+          </Button>
+          <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Create Dinner
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Create New Dinner</DialogTitle>
+                <DialogDescription>
+                  Set up a new 6-person dinner event and invite matched members
+                </DialogDescription>
+              </DialogHeader>
+              <CreateDinnerForm onSuccess={() => {
+                setCreateDialogOpen(false)
+                fetchDinners()
+              }} />
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Filters */}
